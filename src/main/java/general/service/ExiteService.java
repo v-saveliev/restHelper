@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import general.dto.Authorization;
 import general.dto.AuthorizationResponse;
 import general.dto.GenerateTicketRequest;
+import general.utils.ConfigLoader;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,12 +27,18 @@ public class ExiteService {
     private String requestToken = "/Api/V1/Edo/Index/Authorize";
     private String requestTicketGenerate = "/Api/V1/Edo/Ticket/Generate";
     Gson gson = new Gson();
+    ConfigLoader configLoader;
+
     @Autowired
-    Authorization authorization;
+    public ExiteService(ConfigLoader configLoader) {
+        this.configLoader = configLoader;
+        host = configLoader.getProperty("host");
+    }
 
     public String getApiToken() throws Exception {
-
-
+        Authorization authorization = new Authorization();
+        authorization.setVarLogin(configLoader.getProperty("user"));
+        authorization.setVarPassword(configLoader.getProperty("password"));
         String bodyJson = gson.toJson(authorization);
 
         HttpRequest request = HttpRequest.newBuilder()
