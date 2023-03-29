@@ -22,7 +22,6 @@ import java.net.http.HttpResponse;
 @Data
 public class ExiteService {
     private String token;
-    @Value("${authorization.host}")
     private String host;
     private String requestToken = "/Api/V1/Edo/Index/Authorize";
     private String requestTicketGenerate = "/Api/V1/Edo/Ticket/Generate";

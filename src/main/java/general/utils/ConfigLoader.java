@@ -18,11 +18,24 @@ public class ConfigLoader {
     private JsonObject jsonConfig;
 
     @PostConstruct
-    private void init() throws FileNotFoundException {
-        jsonConfig = JsonParser.parseReader(new FileReader(pathConfig)).getAsJsonObject();
+    private void init() throws Exception {
+        readConfig();
     }
 
     public String getProperty(String name) {
         return jsonConfig.get(name) != null ? jsonConfig.get(name).getAsString() : "";
     }
+
+    public String getConfigAsString() {
+        String json = jsonConfig.toString();
+        json = json.replaceAll("\\{", "{\n");
+        json = json.replaceAll("\",", "\",\n");
+        json = json.replaceAll("\"}", "\"\n}");
+        return json;
+    }
+
+    public void readConfig() throws Exception {
+        jsonConfig = JsonParser.parseReader(new FileReader(pathConfig)).getAsJsonObject();
+    }
+
 }
