@@ -4,7 +4,10 @@ import com.intellij.uiDesigner.core.GridConstraints;
 import com.intellij.uiDesigner.core.GridLayoutManager;
 import com.intellij.uiDesigner.core.Spacer;
 import general.dto.GenerateTicketRequest;
+import general.dto.GetTicketRequest;
+import general.service.EdsService;
 import general.service.FileService;
+import general.service.MotpService;
 import general.utils.ConfigLoader;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +18,10 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.FileInputStream;
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.List;
 
 @Component
 @Data
@@ -37,8 +44,22 @@ public class ControlForm extends JFrame {
     private JTextArea textConfigJson;
     private JButton saveConfigButton;
     private JButton fillButton;
+    private JTextField textShard;
+    private JTextField textDoc;
+    private JButton motpButton;
+    private JTextField textTicketId;
+    private JButton buttonGetTicket;
+    private JTextField textGetTicketCount;
+    private JTextField textShardEds;
+    private JTextField textDocEds;
+    private JTextField textTypeEds;
+    private JButton getTicketEdsButton;
     @Autowired
     private ExiteService exiteService;
+    @Autowired
+    private EdsService edsService;
+    @Autowired
+    private MotpService motpService;
     @Autowired
     FileService fileService;
     private ConfigLoader configLoader;
@@ -52,7 +73,7 @@ public class ControlForm extends JFrame {
         setContentPane(panel);
         this.setTitle("Exite helper"); // sets title of frame
         setResizable(false);
-        setMinimumSize(new Dimension(420, 500));
+        setMinimumSize(new Dimension(550, 500));
         setLocationRelativeTo(null); // set JFrame in the center
 
         ImageIcon logo = new ImageIcon("appLogo.png"); // create an ImageIcon
@@ -101,6 +122,56 @@ public class ControlForm extends JFrame {
                 }
             }
         });
+        motpButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                try {
+                    GetTicketRequest ticketRequest = new GetTicketRequest();
+                    ticketRequest.setShardUUID(textShard.getText());
+                    ticketRequest.setDocUUID(textDoc.getText());
+                    if (edsService.getTicketPackageForMotp(ticketRequest)) {
+                        String result = motpService.sendCRPT(new FileInputStream("eds_service_content.zip").readAllBytes());
+                        textArea1.setText(result);
+                    }
+                } catch (Exception e) {
+
+                }
+            }
+        });
+        buttonGetTicket.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                try {
+                    int attempts = Integer.parseInt(textGetTicketCount.getText().equals("") ? "0" : textGetTicketCount.getText());
+                    attempts = attempts == 0 ? 1 : attempts;
+                    for (int i = 0; i < attempts; i++) {
+                        System.out.println(motpService.getTicket(textTicketId.getText()));
+
+
+                        GetTicketRequest ticketRequest = new GetTicketRequest();
+                        ticketRequest.setShardUUID(textShard.getText());
+                        ticketRequest.setDocUUID(textDoc.getText());
+                        if (edsService.getTicketPackageForMotp(ticketRequest)) {
+                            String result = motpService.sendCRPT(new FileInputStream("eds_service_content.zip").readAllBytes());
+                            textArea1.setText(result);
+                        }
+
+                    }
+                } catch (Exception e) {
+
+                }
+            }
+        });
+        getTicketEdsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent actionEvent) {
+                try {
+                    saveTicketButtonListener(actionEvent);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+        });
     }
 
     private void getTokenButtonListener(ActionEvent e) {
@@ -142,10 +213,41 @@ public class ControlForm extends JFrame {
         textSignerFirstname.setText(configLoader.getProperty("signerFirstname"));
         textSignerInn.setText(configLoader.getProperty("signerInn"));
         textSignerPosition.setText(configLoader.getProperty("signerPosition"));
+
+        textShard.setText(configLoader.getProperty("shard"));
+        textDoc.setText(configLoader.getProperty("doc"));
+        textShardEds.setText(configLoader.getProperty("shard"));
+        textDocEds.setText(configLoader.getProperty("doc"));
     }
 
     private void saveButtonListener(ActionEvent e) throws Exception {
         fileService.updateConfig(textConfigJson.getText());
+    }
+
+    private void saveTicketButtonListener(ActionEvent e) throws Exception {
+        List<Map<String, byte[]>> tickets = new ArrayList<>();
+        GetTicketRequest ticketRequest = new GetTicketRequest();
+        ticketRequest.setShardUUID(textShardEds.getText());
+
+        ticketRequest.setTransactionType(textTypeEds.getText());
+        String[] docsUuids = textDocEds.getText().split(";");
+        for (String uuid : docsUuids) {
+                ticketRequest.setDocUUID(uuid.trim());
+                Map<String, byte[]> content = edsService.getTicketBodiesAsByteArrays(ticketRequest);
+                if (content != null && content.size() > 0)
+                    tickets.add(content);
+        }
+
+
+        String fileName = null;
+        if (tickets.size() > 0)
+            fileName = fileService.saveZipFromMapContent(tickets, "eds_content_" + ticketRequest.getDocUUID());
+
+        if (fileName != null)
+            textArea1.setText("content zip archive is saved: " + fileName);
+        else {
+            textArea1.setText("something went wrong");
+        }
     }
 
     {
@@ -165,6 +267,7 @@ public class ControlForm extends JFrame {
     private void $$$setupUI$$$() {
         panel = new JPanel();
         panel.setLayout(new GridLayoutManager(5, 7, new Insets(5, 5, 5, 5), -1, -1));
+        panel.setToolTipText("");
         tabbedPane1 = new JTabbedPane();
         panel.add(tabbedPane1, new GridConstraints(0, 0, 1, 7, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, null, new Dimension(200, 200), null, 0, false));
         checkpane = new JPanel();
@@ -245,6 +348,68 @@ public class ControlForm extends JFrame {
         final JPanel panel2 = new JPanel();
         panel2.setLayout(new BorderLayout(0, 0));
         tabbedPane1.addTab("Send", panel2);
+        final JPanel panel3 = new JPanel();
+        panel3.setLayout(new GridLayoutManager(8, 3, new Insets(0, 0, 0, 0), -1, -1));
+        tabbedPane1.addTab("motp-service", panel3);
+        textShard = new JTextField();
+        panel3.add(textShard, new GridConstraints(1, 1, 1, 2, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        final Spacer spacer2 = new Spacer();
+        panel3.add(spacer2, new GridConstraints(7, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        final JLabel label10 = new JLabel();
+        label10.setText("shardUUID");
+        panel3.add(label10, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        textDoc = new JTextField();
+        panel3.add(textDoc, new GridConstraints(2, 1, 1, 2, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        final JLabel label11 = new JLabel();
+        label11.setText("docUUID");
+        panel3.add(label11, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        motpButton = new JButton();
+        motpButton.setHorizontalAlignment(0);
+        motpButton.setHorizontalTextPosition(11);
+        motpButton.setText("Send");
+        panel3.add(motpButton, new GridConstraints(3, 1, 1, 2, GridConstraints.ANCHOR_EAST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JLabel label12 = new JLabel();
+        label12.setText("container :");
+        panel3.add(label12, new GridConstraints(0, 1, 1, 2, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JSeparator separator1 = new JSeparator();
+        panel3.add(separator1, new GridConstraints(4, 0, 1, 3, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        final JLabel label13 = new JLabel();
+        label13.setText("ticket:");
+        panel3.add(label13, new GridConstraints(5, 1, 1, 2, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final JLabel label14 = new JLabel();
+        label14.setText("ticket id");
+        panel3.add(label14, new GridConstraints(6, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        textTicketId = new JTextField();
+        panel3.add(textTicketId, new GridConstraints(6, 1, 1, 2, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        buttonGetTicket = new JButton();
+        buttonGetTicket.setText("Get");
+        panel3.add(buttonGetTicket, new GridConstraints(7, 2, 1, 1, GridConstraints.ANCHOR_NORTHEAST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        textGetTicketCount = new JTextField();
+        panel3.add(textGetTicketCount, new GridConstraints(7, 1, 1, 1, GridConstraints.ANCHOR_NORTHEAST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        final JPanel panel4 = new JPanel();
+        panel4.setLayout(new GridLayoutManager(5, 2, new Insets(0, 0, 0, 0), -1, -1));
+        tabbedPane1.addTab("EDS", panel4);
+        final JLabel label15 = new JLabel();
+        label15.setText("shard UUID");
+        panel4.add(label15, new GridConstraints(0, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer3 = new Spacer();
+        panel4.add(spacer3, new GridConstraints(4, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        textShardEds = new JTextField();
+        textShardEds.setText("");
+        panel4.add(textShardEds, new GridConstraints(0, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        final JLabel label16 = new JLabel();
+        label16.setText("docUUID");
+        panel4.add(label16, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        textDocEds = new JTextField();
+        panel4.add(textDocEds, new GridConstraints(1, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        final JLabel label17 = new JLabel();
+        label17.setText("transaction type");
+        panel4.add(label17, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        textTypeEds = new JTextField();
+        panel4.add(textTypeEds, new GridConstraints(2, 1, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_HORIZONTAL, GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_FIXED, null, new Dimension(150, -1), null, 0, false));
+        getTicketEdsButton = new JButton();
+        getTicketEdsButton.setText("Get");
+        panel4.add(getTicketEdsButton, new GridConstraints(3, 1, 1, 1, GridConstraints.ANCHOR_EAST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_CAN_GROW, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
         final JScrollPane scrollPane1 = new JScrollPane();
         panel.add(scrollPane1, new GridConstraints(3, 0, 1, 7, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_BOTH, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_WANT_GROW, GridConstraints.SIZEPOLICY_CAN_SHRINK | GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
         textArea1 = new JTextArea();
@@ -254,13 +419,13 @@ public class ControlForm extends JFrame {
         textArea1.setText("");
         textArea1.setWrapStyleWord(false);
         scrollPane1.setViewportView(textArea1);
-        final Spacer spacer2 = new Spacer();
-        panel.add(spacer2, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
-        final Spacer spacer3 = new Spacer();
-        panel.add(spacer3, new GridConstraints(1, 2, 1, 3, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
-        final JLabel label10 = new JLabel();
-        label10.setText("Result:");
-        panel.add(label10, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
+        final Spacer spacer4 = new Spacer();
+        panel.add(spacer4, new GridConstraints(1, 0, 1, 1, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        final Spacer spacer5 = new Spacer();
+        panel.add(spacer5, new GridConstraints(1, 2, 1, 3, GridConstraints.ANCHOR_CENTER, GridConstraints.FILL_VERTICAL, 1, GridConstraints.SIZEPOLICY_WANT_GROW, null, null, null, 0, false));
+        final JLabel label18 = new JLabel();
+        label18.setText("Result:");
+        panel.add(label18, new GridConstraints(2, 0, 1, 1, GridConstraints.ANCHOR_WEST, GridConstraints.FILL_NONE, GridConstraints.SIZEPOLICY_FIXED, GridConstraints.SIZEPOLICY_FIXED, null, null, null, 0, false));
     }
 
     /**

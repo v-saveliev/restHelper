@@ -70,7 +70,7 @@ public class ExiteService {
         HttpResponse<String> response = HttpClient.newHttpClient().send(request,
                 HttpResponse.BodyHandlers.ofString());
 
-        JsonObject responseBody = (JsonObject) JsonParser.parseString(response.body());
+        JsonObject responseBody = JsonParser.parseString(response.body()).getAsJsonObject();
         if (response.statusCode() == 200){
             return responseBody.get("content").getAsString();
         } else if (responseBody.get("varMessage") != null) {

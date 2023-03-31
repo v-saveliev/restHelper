@@ -9,6 +9,10 @@ import org.springframework.stereotype.Component;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.List;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @Component
 @Data
@@ -54,5 +58,36 @@ public class FileService {
         outputStream.close();
 
         configLoader.readConfig();
+    }
+
+    public String saveZipFromMapContent(List<Map<String, byte[]>> listOfMapContent, String zipName) throws Exception {
+
+        int fileCount = 0;
+        String fileName = configLoader.getProperty("workDir") +  File.separator + zipName;
+        String ext = ".zip";
+        File outputFile = new File(fileName + ext);
+        while (outputFile.exists()) {
+            fileCount++;
+            outputFile = new File(fileName + "_" + fileCount + ext);
+        }
+
+        FileOutputStream outputStream = new FileOutputStream(outputFile);
+        ZipOutputStream zip = new ZipOutputStream(outputStream);
+
+        for (Map<String, byte[]> contentMap : listOfMapContent) {
+            for (String contentName : contentMap.keySet()) {
+
+                ZipEntry zipEntry = null;
+                byte[] content = contentMap.get(contentName);
+                zipEntry = new ZipEntry(contentName);
+                zip.putNextEntry(zipEntry);
+                zip.write(content);
+            }
+        }
+
+        zip.close();
+        outputStream.close();
+
+        return outputFile.getAbsolutePath();
     }
 }
