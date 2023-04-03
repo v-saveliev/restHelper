@@ -7,7 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.io.FileNotFoundException;
+import java.io.File;
 import java.io.FileReader;
 
 @Component
@@ -36,6 +36,11 @@ public class ConfigLoader {
 
     public void readConfig() throws Exception {
         jsonConfig = JsonParser.parseReader(new FileReader(pathConfig)).getAsJsonObject();
+    }
+
+    public boolean isWorkDirExists() {
+        File workDir = new File(getProperty("workDir"));
+        return workDir.exists() && workDir.isDirectory();
     }
 
 }

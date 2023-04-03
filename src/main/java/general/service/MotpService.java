@@ -23,6 +23,10 @@ public class MotpService {
     @Autowired
     public MotpService(ConfigLoader configLoader) {
         this.configLoader = configLoader;
+        updateMotpHost();
+    }
+
+    public void updateMotpHost() {
         host = configLoader.getProperty("motpHost");
     }
 

@@ -29,13 +29,21 @@ public class EdsService {
     @Autowired
     public EdsService(ConfigLoader configLoader) {
         this.configLoader = configLoader;
+        updateEdsHost();
+
+    }
+
+    public void updateEdsHost() {
         host = configLoader.getProperty("edsHost");
     }
 
-    public HttpResponse<String> getTicket(String bodyJson) throws Exception {
+    public HttpResponse<String> getTicket(GetTicketRequest getTicketRequest) throws Exception {
+        if (getTicketRequest.getTransactionType() == null || getTicketRequest.getTransactionType().equals(""))
+            throw new Exception("empty transaction type.");
+
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(new URI(host + requestTicketRoute))
-                .POST(HttpRequest.BodyPublishers.ofString(bodyJson))
+                .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(getTicketRequest)))
                 .build();
 
         return HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
@@ -43,13 +51,17 @@ public class EdsService {
 
     public JsonArray getTicketBodies(GetTicketRequest getTicketRequest) throws Exception {
 
-        String bodyJson = gson.toJson(getTicketRequest);
-        HttpResponse<String> response = getTicket(bodyJson);
+        HttpResponse<String> response = getTicket(getTicketRequest);
         if (response.statusCode() != 200)
-            return new JsonArray();
+            throw new Exception("request execution error. Status code: " + response.statusCode()
+                    + "\n body: " + response.body());
 
         JsonObject responseBody = JsonParser.parseString(response.body()).getAsJsonObject();
-        return responseBody.getAsJsonArray("bodys");
+        JsonArray bodies = responseBody.getAsJsonArray("bodys");
+        if (bodies.size() == 0)
+            throw new Exception("empty \"bodys\" Json element. Full response body: " + responseBody);
+
+        return bodies;
     }
 
     public Map<String, byte[]> getTicketBodiesAsByteArrays(GetTicketRequest getTicketRequest) throws Exception {
@@ -59,15 +71,12 @@ public class EdsService {
         JsonArray bodies = this.getTicketBodies(getTicketRequest);
         for (JsonElement body : bodies) {
 
-            byte[] content = null;
-            ZipEntry zipEntry = null;
-            int count = 0;
+            byte[] content;
 
             JsonObject bodyObject = body.getAsJsonObject();
             int bodyType = bodyObject.get("type").getAsInt();
 
             if (bodyType == -1 || bodyType >= 0) {
-                count++;
                 content = Base64.getDecoder().decode(bodyObject.get("base64content").getAsString().replaceAll("\r\n", ""));
                 String prefix = getTicketRequest.getTransactionType() + "_";
                 String ext = bodyType == -1 ? ".xml" : ".bin";

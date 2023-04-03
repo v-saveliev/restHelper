@@ -31,6 +31,11 @@ public class ExiteService {
     @Autowired
     public ExiteService(ConfigLoader configLoader) {
         this.configLoader = configLoader;
+        updateExiteHost();
+
+    }
+
+    public void updateExiteHost() {
         host = configLoader.getProperty("host");
     }
 

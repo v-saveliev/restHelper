@@ -87,6 +87,7 @@ public class ControlForm extends JFrame {
         } catch (Exception e) {
 
         }
+        checkConfigProperties();
         getTokenButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -222,9 +223,14 @@ public class ControlForm extends JFrame {
 
     private void saveButtonListener(ActionEvent e) throws Exception {
         fileService.updateConfig(textConfigJson.getText());
+        checkConfigProperties();
+        edsService.updateEdsHost();
+        exiteService.updateExiteHost();
+        motpService.updateMotpHost();
     }
 
     private void saveTicketButtonListener(ActionEvent e) throws Exception {
+        StringBuilder resultMessage = new StringBuilder();
         List<Map<String, byte[]>> tickets = new ArrayList<>();
         GetTicketRequest ticketRequest = new GetTicketRequest();
         ticketRequest.setShardUUID(textShardEds.getText());
@@ -232,22 +238,41 @@ public class ControlForm extends JFrame {
         ticketRequest.setTransactionType(textTypeEds.getText());
         String[] docsUuids = textDocEds.getText().split(";");
         for (String uuid : docsUuids) {
+            try {
                 ticketRequest.setDocUUID(uuid.trim());
                 Map<String, byte[]> content = edsService.getTicketBodiesAsByteArrays(ticketRequest);
                 if (content != null && content.size() > 0)
                     tickets.add(content);
+            } catch (Exception ex) {
+                resultMessage.append(ex.getMessage());
+            }
         }
 
 
         String fileName = null;
-        if (tickets.size() > 0)
-            fileName = fileService.saveZipFromMapContent(tickets, "eds_content_" + ticketRequest.getDocUUID());
+        if (tickets.size() > 0) {
+            try {
+                fileName = fileService.saveZipFromMapContent(tickets, "eds_content_" + ticketRequest.getDocUUID());
+            } catch (Exception ex) {
+                resultMessage.append(resultMessage.length() == 0 ? "" : "\n").append(ex.getMessage());
+            }
+        } else {
+            resultMessage.append(resultMessage.length() == 0 ? "" : "\n").append("no content to save.");
+        }
 
         if (fileName != null)
-            textArea1.setText("content zip archive is saved: " + fileName);
+            resultMessage.append(resultMessage.length() == 0 ? "" : "\n").append("content zip archive is saved: " + fileName);
         else {
-            textArea1.setText("something went wrong");
+            resultMessage.append(resultMessage.length() == 0 ? "" : "\n").append("file not saved");
         }
+
+        textArea1.setText(resultMessage.toString());
+    }
+
+    private void checkConfigProperties() {
+        textArea1.setText("");
+        if (!configLoader.isWorkDirExists())
+            textArea1.setText("problems with the working directory");
     }
 
     {

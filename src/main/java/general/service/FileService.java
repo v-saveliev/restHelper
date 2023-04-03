@@ -38,7 +38,8 @@ public class FileService {
             String fileNameX = XmlUtil.find("//Файл/@ИдФайл", new ByteArrayInputStream(inputStream.readAllBytes()));
             File renamedFile = new File(outputFile.getParent() + File.separator + fileNameX + ".xml");
             outputFile = outputFile.renameTo(renamedFile) ? renamedFile : outputFile;
-        } catch (Exception e) { } finally {
+        } catch (Exception e) {
+        } finally {
             inputStream.close();
         }
 
@@ -63,7 +64,7 @@ public class FileService {
     public String saveZipFromMapContent(List<Map<String, byte[]>> listOfMapContent, String zipName) throws Exception {
 
         int fileCount = 0;
-        String fileName = configLoader.getProperty("workDir") +  File.separator + zipName;
+        String fileName = configLoader.getProperty("workDir") + File.separator + zipName;
         String ext = ".zip";
         File outputFile = new File(fileName + ext);
         while (outputFile.exists()) {
